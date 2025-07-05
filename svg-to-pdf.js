@@ -23,6 +23,29 @@ const { readdirSync, mkdirSync, existsSync, copyFileSync, writeFileSync, readFil
 const { join, extname } = require('path');
 const { spawnSync } = require('child_process');
 
+// --- ALT Templates ---------------------------------------------------------
+const altTemplates = [
+  'Kolorowanka {{ zmienna }}',
+  'Kolorowanki {{ zmienna }}',
+  '{{ zmienna }} kolorowanka dla dzieci',
+  '{{ zmienna }} kolorowanki dla dzieci',
+  'Kolorowanka do druku {{ zmienna }}',
+  'Kolorowanki do druku {{ zmienna }}',
+  '{{ zmienna }} do druku i pokolorowania',
+  'Darmowa kolorowanka {{ zmienna }} do druku PDF',
+  '{{ zmienna }} – pobierz i wydrukuj kolorowankę',
+  'Kolorowanka z {{ zmienna }} do pobrania',
+  'Malowanka {{ zmienna }} do druku A4',
+  'kolorowanka do druku {{ zmienna }} PDF',
+  'Łatwa kolorowanka {{ zmienna }} dla przedszkolaka',
+  'Edukacyjna kolorowanka {{ zmienna }} do wydruku',
+  'Kogut kolorowanka dla dzieci',
+  'Kolorowanka {{ zmienna }} – format A4 PDF',
+  'Prosta kolorowanka {{ zmienna }} do kolorowania',
+  'Jednorożec kolorowanka',
+  'Pokoloruj {{ zmienna }} – darmowy szablon PDF'
+];
+
 // --- Argumenty CLI --------------------------------------------------------
 const [, , startArg, category] = process.argv;
 const startIndex = parseInt(startArg, 10);
@@ -123,6 +146,8 @@ svgs.forEach(file => {
 
   // 4) Generuj index.md
   const capitalCat = ucFirst(category);
+  const template = altTemplates[(current - startIndex) % altTemplates.length];
+  const altText = template.replace('{{ zmienna }}', category);
   const mdContent = `---\n` +
     `title: ${capitalCat}\n` +
     `description: Kolorowanka ${capitalCat} - wariant ${current}\n` +
@@ -130,6 +155,7 @@ svgs.forEach(file => {
     `variant_of: ${category}\n` +
     `image: /${category}/${current}/${base}.svg\n` +
     `pdf: /${category}/${current}/${base}.pdf\n` +
+    `alt: "${altText}"\n` +
     `tags:\n` +
     `- zwierzeta\n` +
     `- ${category}\n` +
