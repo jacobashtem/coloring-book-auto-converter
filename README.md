@@ -65,6 +65,7 @@ canonical: /zwierzeta/koty
 variant_of: koty
 image: /koty/29/koty-29.svg
 pdf: /koty/29/koty-29.pdf
+alt: "Kolorowanka koty"
 tags:
 - zwierzeta
 - koty
@@ -93,6 +94,17 @@ Znaleziono 12 plików SVG…
 ✅ kotek02.svg → koty-30
 ...
 ✅ Gotowe. Utworzono 12 wariantów (od 29 do 40).
+```
+
+## ➕ Dodawanie opisów ALT
+
+Skrypt automatycznie dodaje pola `alt` do generowanych plików `index.md`. Tekst
+jest rotowany z listy szablonów tak, aby kolejne warianty miały różne opisy.
+Jeśli chcesz zaktualizować ALT w już istniejących plikach, możesz użyć
+dodatkowego skryptu `update-alt.js`:
+
+```bash
+node update-alt.js <kategoria>
 ```
 
 ## 📄 Licencja
