@@ -151,7 +151,7 @@ const capitalCat = ucFirst(subCategory);
 const altText = template.replace('{{ zmienna }}', subCategory);
 
   const mdContent = `---\n` +
-`title: ${capitalCat}\n` +
+  `title: Kolorowanka ${capitalCat} - wariant ${current}\n` +
   `description: Kolorowanka ${capitalCat} - wariant ${current}\n` +
   `canonical: /${parentCategory}/${subCategory}/\n` +
   `variant_of: ${subCategory}\n` +
