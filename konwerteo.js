@@ -9,13 +9,14 @@ const {
   existsSync,
   copyFileSync,
   writeFileSync,
-  readFileSync
+  readFileSync,
+  renameSync
 } = require('fs');
 const { join, extname } = require('path');
-const { spawnSync }     = require('child_process');
+const crypto = require('crypto');
+const { spawnSync } = require('child_process');
 const { PDFDocument, rgb, StandardFonts, PDFName } = require('pdf-lib');
 
-// --- ALT Templates ---------------------------------------------------------
 const altTemplates = [
   'Kolorowanka {{ zmienna }}',
   'Kolorowanki {{ zmienna }}',
@@ -37,7 +38,6 @@ const altTemplates = [
   'Pokoloruj {{ zmienna }} – darmowy szablon PDF'
 ];
 
-// --- Argumenty CLI --------------------------------------------------------
 const [, , startArg, parentCategory, subCategory] = process.argv;
 const startIndex = parseInt(startArg, 10);
 if (isNaN(startIndex) || !parentCategory || !subCategory) {
@@ -45,19 +45,16 @@ if (isNaN(startIndex) || !parentCategory || !subCategory) {
   process.exit(1);
 }
 
-// --- Ścieżki katalogów ----------------------------------------------------
-const SRC_DIR     = 'svgs';
-const OUT_DIR     = 'output';
+const SRC_DIR = 'svgs';
+const OUT_DIR = 'output';
+const DUP_DIR = 'duplikaty';
 const CONTENT_DIR = join(OUT_DIR, 'content', parentCategory, subCategory);
-const PUBLIC_DIR  = join(OUT_DIR, 'public',  parentCategory, subCategory);
-[ CONTENT_DIR, PUBLIC_DIR ].forEach(d => {
+const PUBLIC_DIR = join(OUT_DIR, 'public', parentCategory, subCategory);
+[CONTENT_DIR, PUBLIC_DIR, DUP_DIR].forEach(d => {
   if (!existsSync(d)) mkdirSync(d, { recursive: true });
 });
 
-// --- Lista SVG ------------------------------------------------------------
-const svgs = readdirSync(SRC_DIR)
-  .filter(f => extname(f).toLowerCase() === '.svg')
-  .sort();
+const svgs = readdirSync(SRC_DIR).filter(f => extname(f).toLowerCase() === '.svg').sort();
 if (!svgs.length) {
   console.error('❌ Brak plików .svg w katalogu "svgs/"');
   process.exit(1);
@@ -66,38 +63,20 @@ console.log(`Znaleziono ${svgs.length} plików SVG…`);
 
 const bin = process.platform === 'win32' ? 'inkscape.com' : 'inkscape';
 
-// --- Funkcje pomocnicze SVG → PDF -----------------------------------------
-
-/**  
- * Normalizuje <svg> do A4 + namespace’y  
- */
 function normalizeSvgHeader(svgPath) {
   const A4_W = 595, A4_H = 842;
   let svg = readFileSync(svgPath, 'utf8');
   if (svg.includes('data-normalized="true"')) return;
 
-  // oryginalny viewBox lub A4
   const vbMatch = svg.match(/viewBox="([^"]+)"/);
-  const viewBoxAttr = vbMatch
-    ? `viewBox="${vbMatch[1]}"`
-    : `viewBox="0 0 ${A4_W} ${A4_H}"`;
+  const viewBoxAttr = vbMatch ? `viewBox="${vbMatch[1]}"` : `viewBox="0 0 ${A4_W} ${A4_H}"`;
 
-  // nowy nagłówek
-  const header = `<svg
-  xmlns="http://www.w3.org/2000/svg"
-  xmlns:xlink="http://www.w3.org/1999/xlink"
-  ${viewBoxAttr}
-  width="${A4_W}" height="${A4_H}"
-  preserveAspectRatio="xMidYMid meet"
-  data-normalized="true">`;
+  const header = `<svg\n  xmlns="http://www.w3.org/2000/svg"\n  xmlns:xlink="http://www.w3.org/1999/xlink"\n  ${viewBoxAttr}\n  width="${A4_W}" height="${A4_H}"\n  preserveAspectRatio="xMidYMid meet"\n  data-normalized="true">`;
 
   svg = svg.replace(/<svg\b[^>]*>/i, header);
   writeFileSync(svgPath, svg, 'utf8');
 }
 
-/**  
- * Ustawia width/height A4, preserveAspectRatio, zachowuje namespace’y i viewBox  
- */
 function safeScaleSvg(svgPath) {
   const A4_W = 595, A4_H = 842;
   let svg = readFileSync(svgPath, 'utf8');
@@ -115,17 +94,14 @@ function safeScaleSvg(svgPath) {
   writeFileSync(svgPath, svg, 'utf8');
 }
 
-/**  
- * Eksportuje SVG → PDF A4 przez Inkscape CLI  
- */
 function convertToPdf(srcSvg, dstPdf) {
   const args = [
     srcSvg,
     '--export-type=pdf',
     `--export-filename=${dstPdf}`,
-    '--export-area-page',   // cała strona wg viewBox
-    '--export-width=595',   // A4 szerokość
-    '--export-height=842'   // A4 wysokość
+    '--export-area-page',
+    '--export-width=595',
+    '--export-height=842'
   ];
   const res = spawnSync(bin, args, { stdio: 'inherit' });
   if (res.error || res.status !== 0) {
@@ -133,27 +109,21 @@ function convertToPdf(srcSvg, dstPdf) {
   }
 }
 
-/**  
- * Dopisuje watermark do już istniejącego PDF-a  
- */
 async function watermarkPdf(pdfPath, text = 'twoja-kolorowanka.pl') {
   const existingPdfBytes = readFileSync(pdfPath);
   const pdfDoc = await PDFDocument.load(existingPdfBytes);
-
-  // 1) wyłącz automatyczne skalowanie w viewerze
   const prefs = pdfDoc.context.obj({ PrintScaling: PDFName.of('None') });
   pdfDoc.catalog.set(PDFName.of('ViewerPreferences'), prefs);
 
-  // 2) wstaw watermark
   const pages = pdfDoc.getPages();
-  const font  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   pages.forEach(page => {
     page.drawText(text, {
       x: 10,
       y: 10,
       size: 12,
       font,
-      color: rgb(0.5,0.5,0.5),
+      color: rgb(0.5, 0.5, 0.5),
       opacity: 0.6
     });
   });
@@ -163,37 +133,40 @@ async function watermarkPdf(pdfPath, text = 'twoja-kolorowanka.pl') {
 }
 
 const ucFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
+const hashFileContent = path => crypto.createHash('sha1').update(readFileSync(path)).digest('hex');
 
-// --- Główna pętla ---------------------------------------------------------
-;(async () => {
+(async () => {
   let current = startIndex;
+  const processedHashes = new Set();
 
   for (const file of svgs) {
-    const base   = `${subCategory}-${current}`;
+    const srcPath = join(SRC_DIR, file);
+    const fileHash = hashFileContent(srcPath);
+
+    if (processedHashes.has(fileHash)) {
+      console.warn(`⚠️  Duplikat: ${file} → przeniesiono do /${DUP_DIR}`);
+      renameSync(srcPath, join(DUP_DIR, file));
+      continue;
+    }
+    processedHashes.add(fileHash);
+
+    const base = `${subCategory}-${current}`;
     const dirOut = join(PUBLIC_DIR, String(current));
     if (!existsSync(dirOut)) mkdirSync(dirOut, { recursive: true });
 
     const svgDst = join(dirOut, `${base}.svg`);
     const pdfDst = join(dirOut, `${base}.pdf`);
 
-    // 1) Kopiuj SVG
-    copyFileSync(join(SRC_DIR, file), svgDst);
-
-    // 2) Przygotuj SVG do A4
+    copyFileSync(srcPath, svgDst);
     normalizeSvgHeader(svgDst);
     safeScaleSvg(svgDst);
-
-    // 3) SVG → PDF
     convertToPdf(svgDst, pdfDst);
-
-    // 4) Dodaj watermark bezpośrednio w PDF
     await watermarkPdf(pdfDst);
 
-    // 5) Generuj index.md
     const mdDir = join(CONTENT_DIR, String(current));
     if (!existsSync(mdDir)) mkdirSync(mdDir, { recursive: true });
 
-    const tpl     = altTemplates[(current - startIndex) % altTemplates.length];
+    const tpl = altTemplates[(current - startIndex) % altTemplates.length];
     const altText = tpl.replace('{{ zmienna }}', subCategory);
     const capital = ucFirst(subCategory);
 
