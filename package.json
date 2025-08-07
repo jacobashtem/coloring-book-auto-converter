@@ -10,6 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cross-spawn": "^7.0.6"
+    "cross-spawn": "^7.0.6",
+    "fast-xml-parser": "^5.2.5",
+    "pdf-lib": "^1.17.1"
   }
 }
