@@ -188,5 +188,24 @@ const hashFileContent = path => crypto.createHash('sha1').update(readFileSync(pa
     current++;
   }
 
+  // ✨ Dodajemy index.md dla subkategorii (jeśli nie istnieje)
+  const subCatIndexPath = join(CONTENT_DIR, 'index.md');
+  if (!existsSync(subCatIndexPath)) {
+    const capital = ucFirst(subCategory);
+    const indexMd = `---\n` +
+      `title: Kolorowanki ${capital}\n` +
+      `description: Darmowe kolorowanki ${capital} do druku – PDF A4, idealne dla dzieci. Pobierz i baw się!\n` +
+      `canonical: /${parentCategory}/${subCategory}/\n` +
+      `tags:\n` +
+      `- ${parentCategory}\n` +
+      `- ${subCategory}\n` +
+      `---\n\n` +
+      `# Kolorowanki ${capital}\n\n` +
+      `W tej kategorii znajdziesz kolorowanki ${capital.toLowerCase()} do druku. Każda z nich jest gotowa do pobrania w formacie PDF A4 i idealna dla najmłodszych!`;
+
+    writeFileSync(subCatIndexPath, indexMd, 'utf8');
+    console.log(`📄 Utworzono index.md dla kategorii: ${subCategory}`);
+  }
+
   console.log(`\n✅ Gotowe! Warianty od ${startIndex} do ${current - 1}.`);
 })();
